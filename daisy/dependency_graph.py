@@ -280,7 +280,7 @@ class DependencyGraph():
         '''Return a specific block.'''
         return self.blocks[block_id]
 
-    def cancel_and_reschedule(self, block_id):
+    def cancel_and_reschedule(self, block_id, no_retry=False):
         '''Used to notify that a block has failed. The block will either
         be rescheduled if within the number of retries, or be marked
         as failed.'''
@@ -298,8 +298,9 @@ class DependencyGraph():
             task_id = block_id[0]
 
             if (
-                    self.retry_count[block_id] >
-                    self.task_map[task_id]._daisy.max_retries):
+                    (self.retry_count[block_id] >
+                     self.task_map[task_id]._daisy.max_retries) or
+                    no_retry):
 
                 self.failed_blocks.add(block_id)
                 self.task_failed_count[block_id[0]] += 1

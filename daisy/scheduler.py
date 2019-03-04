@@ -182,7 +182,9 @@ class Scheduler():
             t for t, r in self.results
             if r == ReturnCode.FAILED_POST_CHECK
         ]
-        errored = [t for t, r in self.results if r == ReturnCode.ERROR]
+        errored = ([t for t, r in self.results if
+                    (r == ReturnCode.ERROR)
+                    ])
         network_errored = [
             t for t, r in self.results
             if r == ReturnCode.NETWORK_ERROR
@@ -569,10 +571,16 @@ class Scheduler():
             with self.worker_states_lock:
                 self.worker_outstanding_blocks[worker].remove(block_id)
 
-        if ret in [ReturnCode.ERROR, ReturnCode.NETWORK_ERROR,
+        if ret in [ReturnCode.ERROR,
+                   ReturnCode.NETWORK_ERROR,
                    ReturnCode.FAILED_POST_CHECK]:
             logger.error("Task failed for block %s.", block)
-            self.graph.cancel_and_reschedule(block_id)
+            self.graph.cancel_and_reschedule(
+                block_id,
+                # do not retry block if exception is caught
+                # and likely to persist across retries
+                no_retry=(ret == ReturnCode.ERROR),
+                )
 
         elif ret in [ReturnCode.SUCCESS, ReturnCode.SKIPPED]:
             self.graph.remove_and_update(block_id)
@@ -604,8 +612,13 @@ def _local_worker_wrapper(received_fn, port, task_id):
         block = client.acquire_block()
         if block is None:
             break
-        ret = fn(block)
-        client.release_block(block, ret)
+
+        try:
+            ret = fn(block)
+            client.release_block(block, ret)
+        except Exception:
+            ret = 1
+            client.release_block(block, ret)
 
 
 def run_blockwise(
