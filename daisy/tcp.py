@@ -35,7 +35,7 @@ class DaisyTCPServer(TCPServer):
             logger.error("Unexpected message %s received", msg.type)
             return
 
-        worker_id = msg.data
+        worker_id, task_id = msg.data
         worker = Worker(worker_id, address, stream)
 
         if self.scheduler_closed:
@@ -46,6 +46,7 @@ class DaisyTCPServer(TCPServer):
             return
 
         self.connected_workers.add(worker)
+        self.scheduler.register_worker_callback(worker, task_id=task_id)
 
         # one IO loop scheduler per worker
         while True:

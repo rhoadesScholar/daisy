@@ -58,6 +58,7 @@ class Scheduler():
         self.dead_workers = set()
         self.worker_outstanding_blocks = collections.defaultdict(set)
         self.registered_workers = collections.defaultdict(set)
+        self.worker_aliases_count = collections.defaultdict(int)
 
         # precomputed recruit functions
         self.worker_recruit_fn = {}
@@ -333,20 +334,25 @@ class Scheduler():
                 self.registered_workers[task_id].remove(worker)
             self.worker_type[worker] = None
 
+            assert(self.worker_aliases_count[worker.worker_id] > 0)
+            self.worker_aliases_count[worker.worker_id] -= 1
+
         if ((not self.finished_scheduling) and
                 (task_id not in self.finished_tasks)):
             # task is unfinished--keep respawning to finish task
 
             num_workers = self.tasks[task_id]._daisy.num_workers
 
-            logger.info("Respawning worker %s due to disconnection", worker)
-            context = Context(
-                self.net_identity[0],
-                self.net_identity[1],
-                task_id,
-                worker.worker_id,
-                num_workers)
-            self.worker_recruit_fn[task_id](context)
+            if self.worker_aliases_count[worker.worker_id] == 0:
+                logger.info(
+                    "Respawning worker %s due to disconnection", worker)
+                context = Context(
+                    self.net_identity[0],
+                    self.net_identity[1],
+                    task_id,
+                    worker.worker_id,
+                    num_workers)
+                self.worker_recruit_fn[task_id](context)
 
             # reschedule block if necessary
             with self.worker_states_lock:
@@ -473,12 +479,9 @@ class Scheduler():
 
     def add_idle_worker_callback(self, worker, task):
         '''TCP server calls this to add an worker to the idle queue'''
-        if self.worker_type.get(worker, None) is None:
-            self.register_worker(worker, task)
-
+        assert(self.worker_type.get(worker, None) is not None)
         logger.debug(
             "Add worker {} to idle queue of task {}".format(worker, task))
-
         self.idle_workers[task].put(worker)
 
     def close_all_workers(self):
@@ -525,7 +528,7 @@ class Scheduler():
             worker,
             SchedulerMessage(SchedulerMessageType.NEW_BLOCK, data=block))
 
-    def register_worker(self, worker, task_id):
+    def register_worker_callback(self, worker, task_id):
         '''Register new worker with bookkeeping variables. If scheduler loop
         had finished it will not, instead terminating this new worker.'''
         logger.debug("Registering new worker %s", worker)
@@ -540,6 +543,7 @@ class Scheduler():
             if worker in self.dead_workers:
                 # handle aliasing of previous workers
                 self.dead_workers.remove(worker)
+            self.worker_aliases_count[worker.worker_id] += 1
 
     def block_return(self, worker, block_id, ret):
         '''Called when a block is returned, whether successfully or not'''

@@ -86,7 +86,7 @@ class Client():
         self.send(
             SchedulerMessage(
                 SchedulerMessageType.WORKER_HANDSHAKE,
-                data=self.context.worker_id))
+                data=[self.context.worker_id, self.context.task_id]))
 
     def __del__(self):
         '''Stop spawn ioloop when client is done'''
