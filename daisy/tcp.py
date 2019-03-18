@@ -36,7 +36,7 @@ class DaisyTCPServer(TCPServer):
             return
 
         worker_id, task_id = msg.data
-        worker = Worker(worker_id, address, stream)
+        worker = Worker(worker_id, task_id, address, stream)
 
         if self.scheduler_closed:
             logger.debug(

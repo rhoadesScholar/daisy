@@ -58,7 +58,8 @@ class Scheduler():
         self.dead_workers = set()
         self.worker_outstanding_blocks = collections.defaultdict(set)
         self.registered_workers = collections.defaultdict(set)
-        self.worker_aliases_count = collections.defaultdict(int)
+        self.worker_aliases_count = collections.defaultdict(
+            lambda: collections.defaultdict(int))
 
         # precomputed recruit functions
         self.worker_recruit_fn = {}
@@ -281,7 +282,7 @@ class Scheduler():
 
                 logger.info(
                     "\n\t%s processing %d blocks "
-                    "with %d workers (%d online)"
+                    "with %d workers (%d aliases online)"
                     "\n\t\t%d finished (%d skipped, %d succeeded, %d failed), "
                     "%d processing, %d pending"
                     "\n\t\tETA: %s",
@@ -334,8 +335,9 @@ class Scheduler():
                 self.registered_workers[task_id].remove(worker)
             self.worker_type[worker] = None
 
-            assert(self.worker_aliases_count[worker.worker_id] > 0)
-            self.worker_aliases_count[worker.worker_id] -= 1
+            assert(
+              self.worker_aliases_count[worker.task_id][worker.worker_id] > 0)
+            self.worker_aliases_count[worker.task_id][worker.worker_id] -= 1
 
         if ((not self.finished_scheduling) and
                 (task_id not in self.finished_tasks)):
@@ -343,7 +345,7 @@ class Scheduler():
 
             num_workers = self.tasks[task_id]._daisy.num_workers
 
-            if self.worker_aliases_count[worker.worker_id] == 0:
+            if self.worker_aliases_count[worker.task_id][worker.worker_id] == 0:
                 logger.info(
                     "Respawning worker %s due to disconnection", worker)
                 context = Context(
@@ -543,7 +545,7 @@ class Scheduler():
             if worker in self.dead_workers:
                 # handle aliasing of previous workers
                 self.dead_workers.remove(worker)
-            self.worker_aliases_count[worker.worker_id] += 1
+            self.worker_aliases_count[worker.task_id][worker.worker_id] += 1
 
     def block_return(self, worker, block_id, ret):
         '''Called when a block is returned, whether successfully or not'''
