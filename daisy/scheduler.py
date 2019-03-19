@@ -345,7 +345,7 @@ class Scheduler():
 
             num_workers = self.tasks[task_id]._daisy.num_workers
 
-            if self.worker_aliases_count[worker.task_id][worker.worker_id] == 0:
+            if self.worker_aliases_count[task_id][worker.worker_id] == 0:
                 logger.info(
                     "Respawning worker %s due to disconnection", worker)
                 context = Context(
