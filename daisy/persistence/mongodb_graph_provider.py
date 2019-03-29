@@ -245,6 +245,32 @@ class MongoDbGraphProvider(SharedGraphProvider):
 
         return nodes
 
+    def read_nodes_with_ids(self, ids):
+        try:
+            self.__connect()
+            self.__open_db()
+            self.__open_collections()
+            ids = [int(_id) for _id in ids]
+            if not self.node_attribute_coll_map:
+                query = {'id': {'$in': ids}}
+                result = self.nodes.find(query, {"_id": False})
+            else:
+                agg_pipeline = []
+                agg_pipeline.append({'$match': {'$in': ['id', ids]}})
+                for node_attr_coll, attrs in\
+                        self.node_attribute_coll_map.items():
+                    coll_name = get_node_attribute_collection(node_attr_coll)
+                    join_query = self.__join_node_collections_query(
+                            coll_name, attrs)
+                    agg_pipeline += join_query
+                result = self.nodes.aggregate(agg_pipeline)
+            nodes = list(result)
+
+        finally:
+            self.__disconnect()
+
+        return nodes
+
     def num_nodes(self, roi):
         '''Return the number of nodes in the roi.'''
 

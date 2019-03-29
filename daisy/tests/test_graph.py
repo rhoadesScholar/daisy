@@ -59,6 +59,9 @@ class TestGraph(unittest.TestCase):
     def test_graph_read_blockwise_file(self):
         self.run_test_graph_read_blockwise(self.file_provider_factory)
 
+    def test_graph_read_nodes_with_ids_mongo(self):
+        self.run_test_graph_read_nodes_with_ids(self.mongo_provider_factory)
+
     def run_test_graph_io(self, provider_factory):
 
         graph_provider = provider_factory('w')
@@ -314,3 +317,41 @@ class TestGraph(unittest.TestCase):
 
         for u, v, score in zip(edges['u'], edges['v'], edges['score']):
             self.assertEqual(graph.edges[(u, v)]['score'], score)
+
+    def run_test_graph_read_nodes_with_ids(self, provider_factory):
+
+        graph_provider = provider_factory('w')
+
+        graph = graph_provider[
+            daisy.Roi(
+                (0, 0, 0),
+                (10, 10, 10))
+        ]
+
+        graph.add_node(42, position=(1, 1, 1))
+        graph.add_node(23, position=(5, 5, 5), swip='swap')
+        graph.add_node(57, position=daisy.Coordinate((7, 7, 7)), zap='zip')
+        graph.add_edge(42, 23)
+        graph.add_edge(57, 23)
+
+        graph.write_nodes()
+        graph.write_edges()
+
+        graph_provider = provider_factory('r')
+        compare_graph = graph_provider[
+            daisy.Roi(
+                (3, 3, 3),
+                (3, 3, 3))
+        ]
+
+        nodes_outside_roi = [node
+                             for node, data in compare_graph.nodes(data=True)
+                             if 'position' not in data]
+        nodes_with_pos = graph_provider.read_nodes_with_ids(nodes_outside_roi)
+        print(nodes_with_pos)
+
+        expected_result = [
+                {'id': 42, 'position': [1, 1, 1]},
+                {'id': 57, 'position': [7, 7, 7], 'zap': 'zip'},
+            ]
+        self.assertCountEqual(nodes_with_pos, expected_result)
