@@ -314,7 +314,7 @@ class MongoDbGraphProvider(SharedGraphProvider):
 
         return edges.count() > 0
 
-    def read_edges(self, roi, nodes=None, attr_filter=None):
+    def read_edges(self, roi, nodes=None, attr_filter=None, incoming=False):
         '''Returns a list of edges within roi.
         Arguments:
 
@@ -332,6 +332,10 @@ class MongoDbGraphProvider(SharedGraphProvider):
 
                 Only return nodes that have attribute=value for
                 each attribute value pair in attr_filter.
+
+            incoming (``bool``):
+
+                True if you also want incoming edges. Default is false
 
         '''
 
@@ -366,6 +370,12 @@ class MongoDbGraphProvider(SharedGraphProvider):
                 assert i_b < len(node_ids)
                 endpoint_query = {self.endpoint_names[0]:
                                   {'$in': node_ids[i_b:i_e]}}
+                if incoming:
+                    endpoint_query = {'$or': [
+                            endpoint_query,
+                            {self.endpoint_names[1]:
+                                {'$in': node_ids[i_b:i_e]}}
+                            ]}
                 if not self.edge_attribute_coll_map:
                     if attr_filter:
                         filters.append(endpoint_query)
@@ -409,7 +419,12 @@ class MongoDbGraphProvider(SharedGraphProvider):
 
         return self.get_graph(roi)
 
-    def get_graph(self, roi, nodes_filter=None, edges_filter=None):
+    def get_graph(
+            self,
+            roi,
+            nodes_filter=None,
+            edges_filter=None,
+            incoming=False):
         ''' Return a graph within roi, optionally filtering by
         node and edge attributes.
 
@@ -425,10 +440,14 @@ class MongoDbGraphProvider(SharedGraphProvider):
                 Only return nodes/edges that have attribute=value for
                 each attribute value pair in nodes/edges_filter.
 
+            incoming (``bool``):
+
+                True if you also want incoming edges. Default is false
 
         '''
         nodes = self.read_nodes(roi, attr_filter=nodes_filter)
-        edges = self.read_edges(roi, nodes=nodes, attr_filter=edges_filter)
+        edges = self.read_edges(
+            roi, nodes=nodes, attr_filter=edges_filter, incoming=incoming)
         u, v = self.endpoint_names
         node_list = [
                 (n['id'], self.__remove_keys(n, ['id']))

@@ -62,6 +62,9 @@ class TestGraph(unittest.TestCase):
     def test_graph_read_nodes_with_ids_mongo(self):
         self.run_test_graph_read_nodes_with_ids(self.mongo_provider_factory)
 
+    def test_graph_incoming_edges_mongo(self):
+        self.run_test_graph_incoming_edges(self.mongo_provider_factory)
+
     def run_test_graph_io(self, provider_factory):
 
         graph_provider = provider_factory('w')
@@ -355,3 +358,37 @@ class TestGraph(unittest.TestCase):
                 {'id': 57, 'position': [7, 7, 7], 'zap': 'zip'},
             ]
         self.assertCountEqual(nodes_with_pos, expected_result)
+
+    def run_test_graph_incoming_edges(self, provider_factory):
+        graph_provider = provider_factory('w')
+        graph = graph_provider[
+            daisy.Roi(
+                (0, 0, 0),
+                (10, 10, 10))
+        ]
+
+        graph.add_node(2, position=(9, 9, 9))
+        graph.add_node(42, position=(1, 1, 1))
+        graph.add_node(23, position=(5, 5, 5), swip='swap')
+        graph.add_node(57, position=daisy.Coordinate((7, 7, 7)), zap='zip')
+        graph.add_edge(42, 23)
+        graph.add_edge(57, 23)
+        graph.add_edge(2, 42)
+
+        write_roi = daisy.Roi((0, 0, 0), (10, 10, 10))
+        graph.write_nodes(roi=write_roi)
+        graph.write_edges(roi=write_roi)
+
+        graph_provider = provider_factory('r')
+        compare_graph = graph_provider.get_graph(
+            daisy.Roi(
+                (0, 0, 0),
+                (6, 6, 6)),
+            incoming=True
+        )
+
+        edges = [(min(u, v), max(u, v)) for u, v in graph.edges()]
+        compare_edges = [(min(u, v), max(u, v))
+                         for u, v in compare_graph.edges()]
+
+        self.assertCountEqual(edges, compare_edges)
