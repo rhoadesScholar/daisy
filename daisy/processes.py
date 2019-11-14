@@ -18,7 +18,7 @@ def _freopen(filename, mode, fobj):
     os.dup2(newfd, targetfd)
 
 
-def call(command, log_out, log_err):
+def call(command, log_out, log_err, append=False):
     """Run ``command`` in a subprocess, log stdout and stderr to ``log_out``
     and ``log_err``"""
 
@@ -28,9 +28,10 @@ def call(command, log_out, log_err):
         "\n\tlog_out %s"
         "\n\tlog_err %s",
         command, log_out, log_err)
+    mode = 'a' if append else 'w'
     try:
-        with open(log_out, 'w') as stdout:
-            with open(log_err, 'w') as stderr:
+        with open(log_out, mode) as stdout:
+            with open(log_err, mode) as stderr:
                 check_call(
                     ' '.join(command),
                     shell=True,
