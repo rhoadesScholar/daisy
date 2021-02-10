@@ -1,5 +1,4 @@
 from .exceptions import NotConnected
-from .io_looper import IOLooper
 from .tcp_stream import TCPStream
 from .internal_messages import (
     AckClientDisconnect,
@@ -8,11 +7,13 @@ import logging
 import queue
 import time
 import tornado.tcpclient
+import tornado.ioloop
+import threading
 
 logger = logging.getLogger(__name__)
 
 
-class TCPClient(IOLooper):
+class TCPClient():
     '''A TCP client to handle client-server communication through
     :class:`TCPMessage` objects.
 
@@ -26,7 +27,14 @@ class TCPClient(IOLooper):
 
     def __init__(self, host, port):
 
-        super().__init__()
+        logger.debug("Creating new IOLoop for TCPClient")
+        self.ioloop = tornado.ioloop.IOLoop()
+
+        logger.debug("Starting io loop for TCPClient")
+        self.ioloop_thread = threading.Thread(
+            target=self.ioloop.start,
+            daemon=True)
+        self.ioloop_thread.start()
 
         logger.debug("Creating new TCP client...")
 
@@ -40,7 +48,7 @@ class TCPClient(IOLooper):
         self.connect()
 
     def __del__(self):
-
+        logger.debug("Garbage collection called for TCPClient")
         if self.connected():
             self.disconnect()
 

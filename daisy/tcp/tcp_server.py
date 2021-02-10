@@ -2,17 +2,18 @@ from .exceptions import NoFreePort
 from .internal_messages import (
     AckClientDisconnect,
     NotifyClientDisconnect)
-from .io_looper import IOLooper
 from .tcp_stream import TCPStream
 import logging
 import queue
 import socket
 import tornado.tcpserver
+import tornado.ioloop
+import threading
 
 logger = logging.getLogger(__name__)
 
 
-class TCPServer(tornado.tcpserver.TCPServer, IOLooper):
+class TCPServer(tornado.tcpserver.TCPServer):
     '''A TCP server to handle client-server communication through
     :class:`Message` objects.
 
@@ -25,7 +26,13 @@ class TCPServer(tornado.tcpserver.TCPServer, IOLooper):
     def __init__(self, max_port_tries=1000):
 
         tornado.tcpserver.TCPServer.__init__(self)
-        IOLooper.__init__(self)
+        logger.debug("Creating new ioloop for tcp server")
+        self.ioloop = tornado.ioloop.IOLoop()
+        logger.debug("Starting ioloop for tcp server")
+        self.ioloop_thread = threading.Thread(
+            target=self.ioloop.start,
+            daemon=True)
+        self.ioloop_thread.start()
 
         self.message_queue = queue.Queue()
         self.exception_queue = queue.Queue()
