@@ -63,6 +63,13 @@ class MongoDbGraphProvider(SharedGraphProvider):
             entry denotes the position coordinates in order (e.g.,
             `position_z`, `position_y`, `position_x`).
 
+        dims (``int``):
+
+            The number of dimensions of the data stored in the
+            "position_attribute". Only needed if "position_attribute" is a
+            single value e.g. "position" to create the valid number of
+            attributes e.g. "position.0", "position.1", "position.2"
+
     '''
 
     def __init__(
@@ -76,7 +83,8 @@ class MongoDbGraphProvider(SharedGraphProvider):
             edges_collection='edges',
             endpoint_names=None,
             meta_collection='meta',
-            position_attribute='position'):
+            position_attribute='position',
+            dims=None):
 
         self.db_name = db_name
         self.host = host
@@ -94,6 +102,7 @@ class MongoDbGraphProvider(SharedGraphProvider):
         self.edges = None
         self.meta = None
         self.position_attribute = position_attribute
+        self.dims = dims
 
         try:
 
@@ -178,11 +187,11 @@ class MongoDbGraphProvider(SharedGraphProvider):
             projection = {'_id': False}
             if read_attrs is not None:
                 projection['id'] = True
-                if type(self.position_attribute) == list:
+                if isinstance(self.position_attribute, str):
+                    projection[self.position_attribute] = True
+                else:
                     for a in self.position_attribute:
                         projection[a] = True
-                else:
-                    projection[self.position_attribute] = True
                 for attr in read_attrs:
                     projection[attr] = True
             nodes = self.nodes.find({'$and': query_list}, projection)
@@ -541,17 +550,27 @@ class MongoDbGraphProvider(SharedGraphProvider):
         self.__open_db()
         self.__open_collections()
 
-        if type(self.position_attribute) == list:
+        if isinstance(self.position_attribute, str):
+            if self.dims is None:
+                logger.warning("Recommended to provide number of dimensions "
+                               "for efficient position indexing")
+                self.nodes.create_index(
+                        [
+                            (self.position_attribute, ASCENDING)
+                        ],
+                        name='position')
+            else:
+                self.nodes.create_index(
+                    [
+                        ('%s.%s' % (self.position_attribute, i), ASCENDING)
+                        for i in range(self.dims)
+                    ],
+                    name='position')
+        else:
             self.nodes.create_index(
                 [
                     (key, ASCENDING)
                     for key in self.position_attribute
-                ],
-                name='position')
-        else:
-            self.nodes.create_index(
-                [
-                    ('position', ASCENDING)
                 ],
                 name='position')
 
@@ -641,7 +660,22 @@ class MongoDbGraphProvider(SharedGraphProvider):
         begin = roi.get_begin()
         end = roi.get_end()
 
-        if type(self.position_attribute) == list:
+        if isinstance(self.position_attribute, str):
+            return {
+                "position.%d"
+                % d: {
+                    k: v
+                    for k, v in zip(
+                        ["$gte", "$lt"],
+                        [
+                            b if b is not None else float("-inf"),
+                            e if e is not None else float("inf"),
+                        ],
+                    )
+                }
+                for d, (b, e) in enumerate(zip(begin, end))
+            }
+        else:
             assert len(self.position_attribute) == roi.dims(), (
                 'Number of position attributes does not match number of '
                 'dimensions')
@@ -658,21 +692,6 @@ class MongoDbGraphProvider(SharedGraphProvider):
                     )
                 }
                 for key, b, e in zip(self.position_attribute, begin, end)
-            }
-        else:
-            return {
-                "position.%d"
-                % d: {
-                    k: v
-                    for k, v in zip(
-                        ["$gte", "$lt"],
-                        [
-                            b if b is not None else float("-inf"),
-                            e if e is not None else float("inf"),
-                        ],
-                    )
-                }
-                for d, (b, e) in enumerate(zip(begin, end))
             }
 
 
@@ -1009,15 +1028,15 @@ class MongoDbSharedSubGraph(SharedSubGraph):
         # know they are outside of the subgraph ROI, and therefore also
         # outside of 'roi', whatever it is.
         coordinate = []
-        if type(self.provider.position_attribute) == list:
+        if isinstance(self.provider.position_attribute, str):
+            if self.provider.position_attribute not in node_data:
+                return False
+            coordinate = node_data[self.provider.position_attribute]
+        else:
             for pos_attr in self.provider.position_attribute:
                 if pos_attr not in node_data:
                     return False
                 coordinate.append(node_data[pos_attr])
-        else:
-            if self.provider.position_attribute not in node_data:
-                return False
-            coordinate = node_data[self.provider.position_attribute]
         logger.debug("Checking if coordinate {} is inside roi {}"
                      .format(coordinate, roi))
         return roi.contains(Coordinate(coordinate))
