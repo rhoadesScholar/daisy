@@ -861,9 +861,9 @@ class MongoDbSharedSubGraph(SharedSubGraph):
                     if key in attributes:
                         update[key] = data[key]
                 if not update:
-                    logger.info("Skipping node %s with data %s"
-                                " - no attributes to update"
-                                % (node_id, data))
+                    logger.debug("Skipping node %s with data %s"
+                                 " - no attributes to update"
+                                 % (node_id, data))
                     continue
                 update = {'$set': update}
 
@@ -917,9 +917,9 @@ class MongoDbSharedSubGraph(SharedSubGraph):
                     if key in attributes:
                         update[key] = data[key]
                 if not update:
-                    logger.info("Skipping edge %s -> %s with data %s"
-                                "- no attributes to update"
-                                % (u, v, data))
+                    logger.debug("Skipping edge %s -> %s with data %s"
+                                 "- no attributes to update"
+                                 % (u, v, data))
                     continue
                 update = {'$set': update}
 
