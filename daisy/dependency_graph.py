@@ -135,10 +135,10 @@ class BlockwiseDependencyGraph:
         # on the upper boundary with a rounding term
         if self.fit == "overhang" or self.fit == "shrink":
             # want to round up if there is any write roi left
-            self.rounding_term = (1,) * self.block_write_roi.dims()
+            self.rounding_term = (1,) * self.block_write_roi.dims
         else:
             # want to round up only if there is a full write block left.
-            self.rounding_term = self.block_write_roi.get_shape()
+            self.rounding_term = self.block_write_roi.shape
 
         # computed values
         self._level_stride = self.compute_level_stride()

@@ -28,7 +28,7 @@ class Array(Freezable):
         data_offset (`tuple`, optional):
 
             The start of ``data``, in world units. Defaults to
-            ``roi.get_begin()``, if not given.
+            ``roi.begin``, if not given.
 
         chunk_shape (`tuple`, optional):
 
@@ -53,15 +53,15 @@ class Array(Freezable):
         self.roi = roi
         self.voxel_size = Coordinate(voxel_size)
         self.chunk_shape = Coordinate(chunk_shape) if chunk_shape else None
-        self.n_channel_dims = len(data.shape) - roi.dims()
+        self.n_channel_dims = len(data.shape) - roi.dims
         self.check_write_chunk_align = check_write_chunk_align
 
-        assert self.voxel_size.dims() == self.roi.dims(), (
+        assert self.voxel_size.dims == self.roi.dims, (
             "dimension of voxel_size (%d) does not match dimension of roi (%d)"
-            % (self.voxel_size.dims(), self.roi.dims()))
+            % (self.voxel_size.dims, self.roi.dims))
 
         if data_offset is None:
-            data_offset = roi.get_begin()
+            data_offset = roi.begin
         else:
             data_offset = Coordinate(data_offset)
 
@@ -70,13 +70,13 @@ class Array(Freezable):
             self.voxel_size * Coordinate(self.data.shape[self.n_channel_dims :]),
         )
 
-        assert self.roi.get_begin().is_multiple_of(voxel_size), (
+        assert self.roi.begin.is_multiple_of(voxel_size), (
             "roi offset %s is not a multiple of voxel size %s" % (
-                self.roi.get_begin(), voxel_size))
+                self.roi.begin, voxel_size))
 
-        assert self.roi.get_shape().is_multiple_of(voxel_size), (
+        assert self.roi.shape.is_multiple_of(voxel_size), (
             "roi shape %s is not a multiple of voxel size %s" % (
-                self.roi.get_shape(), voxel_size))
+                self.roi.shape, voxel_size))
 
         assert data_offset.is_multiple_of(voxel_size), (
             "data offset %s is not a multiple of voxel size %s" % (
@@ -98,7 +98,7 @@ class Array(Freezable):
         but does not actually create the ``ndarray``.
         '''
 
-        view_shape = (self.roi/self.voxel_size).get_shape()
+        view_shape = (self.roi/self.voxel_size).shape
         return self.data.shape[:self.n_channel_dims] + view_shape
 
     @property
@@ -138,7 +138,7 @@ class Array(Freezable):
                 self.data,
                 roi,
                 self.voxel_size,
-                self.data_roi.get_begin())
+                self.data_roi.begin)
 
         elif isinstance(key, Coordinate):
 
@@ -168,13 +168,13 @@ class Array(Freezable):
         assert isinstance(roi, Roi), (
             "Roi expected, but got %s" % (type(roi)))
 
-        assert roi.get_begin().is_multiple_of(self.voxel_size), (
+        assert roi.begin.is_multiple_of(self.voxel_size), (
             "roi offset %s is not a multiple of voxel size %s" % (
-                roi.get_begin(), self.voxel_size))
+                roi.begin, self.voxel_size))
 
-        assert roi.get_shape().is_multiple_of(self.voxel_size), (
+        assert roi.shape.is_multiple_of(self.voxel_size), (
             "roi shape %s is not a multiple of voxel size %s" % (
-                roi.get_shape(), self.voxel_size))
+                roi.shape, self.voxel_size))
 
         target = self.data
         target_slices = self.__slices(
@@ -235,7 +235,7 @@ class Array(Freezable):
         if fill_value is None:
             return self[roi].to_ndarray()
 
-        shape = (roi/self.voxel_size).get_shape()
+        shape = (roi/self.voxel_size).shape
         data = np.zeros(
             self.data.shape[:self.n_channel_dims] + shape,
             dtype=self.data.dtype)
@@ -270,18 +270,18 @@ class Array(Freezable):
     def __slices(self, roi, check_chunk_align=False):
         '''Get the voxel slices for the given roi.'''
 
-        voxel_roi = (roi - self.data_roi.get_begin())/self.voxel_size
+        voxel_roi = (roi - self.data_roi.begin)/self.voxel_size
 
         if check_chunk_align:
 
-            for d in range(roi.dims()):
+            for d in range(roi.dims):
 
                 end_of_array = roi.get_end()[d] == self.roi.get_end()[d]
 
                 begin_align_with_chunks = (
-                    voxel_roi.get_begin()[d] % self.chunk_shape[d] == 0)
+                    voxel_roi.begin[d] % self.chunk_shape[d] == 0)
                 shape_align_with_chunks = (
-                    voxel_roi.get_shape()[d] % self.chunk_shape[d] == 0)
+                    voxel_roi.shape[d] % self.chunk_shape[d] == 0)
 
                 assert begin_align_with_chunks and (
                     shape_align_with_chunks or
@@ -295,7 +295,7 @@ class Array(Freezable):
     def __index(self, coordinate):
         '''Get the voxel slices for the given coordinate.'''
 
-        index = (coordinate - self.data_roi.get_begin())/self.voxel_size
+        index = (coordinate - self.data_roi.begin)/self.voxel_size
         if self.n_channel_dims > 0:
             index = (Ellipsis,) + index
         return index
