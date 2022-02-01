@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import tempfile
+from cloudvolume import CloudVolume
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,22 @@ def open_ds(filename, ds_name, mode='r', attr_filename=None):
             adaptor.voxel_size,
             adaptor.roi.begin,
             chunk_shape=adaptor.chunk_shape)
+
+    elif filename.contains('://'):
+
+        logger.debug("attempting to load cloud volume...")
+        vol = CloudVolume(filename)
+        vol.cache.enabled = True
+        logger.debug("cloud volume loaded: %s", vol.layer)
+        
+        voxel_size = Coordinate(vol.resolution)
+        offset = voxel_size*Coordinate(vol.voxel_offset)
+        shape = Coordinate(vol.volume_size)
+        roi = Roi(offset, voxel_size*shape)
+
+        chunk_shape = Coordinate(vol.chunk_size)
+
+        return Array(vol, roi, voxel_size, chunk_shape=chunk_shape)
 
     else:
 
